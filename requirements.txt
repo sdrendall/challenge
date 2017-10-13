@@ -5,3 +5,5 @@ matplotlib
 seaborn
 pickle
 itertools
+scipy
+sklearn
