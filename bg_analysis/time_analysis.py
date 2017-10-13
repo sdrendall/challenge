@@ -11,7 +11,7 @@ class AnalysisEngine(object):
     self.reset_time_acc()
     self.activity_state = {state: 0 for state in consts.STATES}
     self.activity_table = pd.DataFrame(self.time_acc, index=[initial_time])
-    
+
   def process_line(self, time_state_tuple):
     time, new_state = time_state_tuple
     since_output = time - self.last_log_time
@@ -44,3 +44,38 @@ class AnalysisEngine(object):
   def reset_time_acc(self):
     self.time_acc = {state: timedelta(0) for state in consts.STATES}
 
+  def get_accumulated_table(self, bin_size=consts.DEFAULT_BIN_SIZE, activities=consts.STATES):
+    # initialize times
+    start_time = self.activity_table.index[0]
+    end_time = start_time + bin_size
+    # initialize row acc and dataframe
+    update_row = self.activity_table.loc[start_time:end_time, activities].sum()
+    update_row.name = end_time
+    reduced_frame = pd.DataFrame().append(update_row)
+    # first update for times
+    start_time += self.log_interval
+    end_time += self.log_interval
+    while end_time < self.activity_table.index[-1]:
+      sub_row = self.activity_table.loc[start_time, activities]
+      next_row = self.activity_table.loc[end_time, activities]
+      update_row = update_row - sub_row + next_row
+      update_row.name = end_time
+      reduced_frame = reduced_frame.append(update_row)
+      start_time += self.log_interval
+      end_time += self.log_interval
+
+    return reduced_frame
+
+  def get_most_recent_bin(self, bin_size=consts.DEFAULT_BIN_SIZE, activities=consts.STATES):
+    final_index = self.activity_table.index[-1]
+    start_index = final_index - bin_size
+    sub_table = self.activity_table.loc[start_index:, activities]
+    sum_series = sub_table.sum()
+    sum_series.name = self.activity_table.index[-1]
+    return pd.DataFrame().append(sum_series)
+      
+
+def map_to_window(f, a, window_size=1, step=1):
+  views = [a[i:i+window_size] for i in range(0, a.size - window_size, step)]
+  results = map(f, views)
+  return np.asarray(results)
